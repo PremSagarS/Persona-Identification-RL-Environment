@@ -5,3 +5,22 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 enable_web_interface: true
+
+tasks:
+  - id: "1"
+    grader: "personaidentify.evalhelpers:Task1Grader"
+    name: "Persona Inference"
+    description: "Infer persona labels from a user's full purchase history."
+    difficulty: "easy"
+
+  - id: "2"
+    grader: "personaidentify.evalhelpers:Task1Grader"
+    name: "Product Ranking"
+    description: "Rank products in a mixed basket to surface likely purchases."
+    difficulty: "medium"
+
+  - id: "3"
+    grader: "personaidentify.evalhelpers:Task1Grader"
+    name: "Cold-start Interrogation"
+    description: "Interactively ask questions then recommend persona and products under a question budget."
+    difficulty: "hard"
