@@ -8,88 +8,91 @@ W1 = 0.2
 W2 = 0.5
 W3 = 0.3
 
-def calculate_persona_reward(true_personas_list = None, pred_actions = None):
-    """
-    Calculates a magnitude-aware cosine similarity reward.
-    
-    Args:
-        true_personas_list: List of dicts e.g. [{'persona': 'A', 'confidence': 0.8}]
-        pred_actions: List of objects with .persona and .confidence attributes
-    """
-
-    if true_personas_list == None or pred_actions == None: return 0.01
-
-    TruePersonas = {p['persona']: p['confidence'] for p in true_personas_list}
-    PredPersonas = {p.persona: p.confidence for p in pred_actions}
-
-    active_keys = set(TruePersonas.keys()) | set(PredPersonas.keys())
-    
-    if not active_keys:
-        return 1.0
-
-    dot_product = 0.0
-    true_mag_sq = 0.0
-    pred_mag_sq = 0.0
-
-    for p in active_keys:
-        t = TruePersonas.get(p, 0.0)
-        p_val = PredPersonas.get(p, 0.0)
+class Task1Grader:
+    def calculate_persona_reward(true_personas_list = None, pred_actions = None):
+        """
+        Calculates a magnitude-aware cosine similarity reward.
         
-        dot_product += t * p_val
-        true_mag_sq += t ** 2
-        pred_mag_sq += p_val ** 2
+        Args:
+            true_personas_list: List of dicts e.g. [{'persona': 'A', 'confidence': 0.8}]
+            pred_actions: List of objects with .persona and .confidence attributes
+        """
 
-    if true_mag_sq == 0 or pred_mag_sq == 0:
-        return 1.0 if true_mag_sq == pred_mag_sq else 0.0
+        if true_personas_list == None or pred_actions == None: return 0.01
 
-    true_mag = math.sqrt(true_mag_sq)
-    pred_mag = math.sqrt(pred_mag_sq)
+        TruePersonas = {p['persona']: p['confidence'] for p in true_personas_list}
+        PredPersonas = {p.persona: p.confidence for p in pred_actions}
 
-    cosine_sim = dot_product / (true_mag * pred_mag)
-
-    magnitude_ratio = min(true_mag, pred_mag) / max(true_mag, pred_mag)
-
-    reward = cosine_sim * magnitude_ratio
-
-    return max(0.0, min(1.0, reward))
-
-def calculate_product_ranking_reward(purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
-    """
-    Calculates the Mean Average Precision (MAP) for the ranked list.
-    Returns a float between 0.0 and 1.0.
-    """
-    if purchase_history == None or ranked_products == None: return 0.01
-
-    true_titles = {p.title for p in purchase_history}
-    
-    if not true_titles or not ranked_products:
-        return 0.0
-
-    relevant_found = 0
-    running_precision_sum = 0.0
-
-    for i, product in enumerate(ranked_products):
-        rank = i + 1
+        active_keys = set(TruePersonas.keys()) | set(PredPersonas.keys())
         
-        if product in true_titles:
-            relevant_found += 1
-            precision_at_k = relevant_found / rank
-            running_precision_sum += precision_at_k
+        if not active_keys:
+            return 1.0
 
-    avg_precision = running_precision_sum / len(true_titles)
+        dot_product = 0.0
+        true_mag_sq = 0.0
+        pred_mag_sq = 0.0
 
-    return float(avg_precision)
+        for p in active_keys:
+            t = TruePersonas.get(p, 0.0)
+            p_val = PredPersonas.get(p, 0.0)
+            
+            dot_product += t * p_val
+            true_mag_sq += t ** 2
+            pred_mag_sq += p_val ** 2
 
-def task3_evaluator(pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
+        if true_mag_sq == 0 or pred_mag_sq == 0:
+            return 1.0 if true_mag_sq == pred_mag_sq else 0.0
 
-    if pred_actions == None or ranked_products == None or true_personas_list == None or purchase_history == None or numq == None:
-        return 0.01
-    
-    e1 = calculate_persona_reward(true_personas_list, pred_actions)
-    e2 = calculate_product_ranking_reward(purchase_history, ranked_products)
-    e3 = (MAXQ - numq) / MAXQ
+        true_mag = math.sqrt(true_mag_sq)
+        pred_mag = math.sqrt(pred_mag_sq)
 
-    return e1 * W1 + e2 * W2 + e3 * W3
+        cosine_sim = dot_product / (true_mag * pred_mag)
+
+        magnitude_ratio = min(true_mag, pred_mag) / max(true_mag, pred_mag)
+
+        reward = cosine_sim * magnitude_ratio
+
+        return max(0.0, min(1.0, reward))
+
+class Task2Grader:
+    def calculate_product_ranking_reward(purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
+        """
+        Calculates the Mean Average Precision (MAP) for the ranked list.
+        Returns a float between 0.0 and 1.0.
+        """
+        if purchase_history == None or ranked_products == None: return 0.01
+
+        true_titles = {p.title for p in purchase_history}
+        
+        if not true_titles or not ranked_products:
+            return 0.0
+
+        relevant_found = 0
+        running_precision_sum = 0.0
+
+        for i, product in enumerate(ranked_products):
+            rank = i + 1
+            
+            if product in true_titles:
+                relevant_found += 1
+                precision_at_k = relevant_found / rank
+                running_precision_sum += precision_at_k
+
+        avg_precision = running_precision_sum / len(true_titles)
+
+        return float(avg_precision)
+
+class Task3Grader:
+    def task3_evaluator(pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
+
+        if pred_actions == None or ranked_products == None or true_personas_list == None or purchase_history == None or numq == None:
+            return 0.01
+        
+        e1 = Task1Grader().calculate_persona_reward(true_personas_list, pred_actions)
+        e2 = Task2Grader().calculate_product_ranking_reward(purchase_history, ranked_products)
+        e3 = (MAXQ - numq) / MAXQ
+
+        return e1 * W1 + e2 * W2 + e3 * W3
 
 if __name__ == "__main__":
     import json
@@ -106,4 +109,4 @@ if __name__ == "__main__":
 
     basket = [p.title for p in basket]
 
-    print(calculate_product_ranking_reward(real_purchases, basket))
+    print(Task2Grader().calculate_product_ranking_reward(real_purchases, basket))

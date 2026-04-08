@@ -33,13 +33,13 @@ from openenv.core.env_server.types import State
 try:
     from ..models import PersonaIdentifyAction, PersonaIdentifyObservation, PersonaIdentifyState
     from ..datamodels import ProductReview
-    from ..evalhelpers import calculate_persona_reward, calculate_product_ranking_reward, task3_evaluator, MAXQ
+    from ..evalhelpers import Task1Grader, Task2Grader, Task3Grader, MAXQ
     from ..utils import get_all_personas, get_personas, make_basket, get_real_purchases
     from ..llm import PersistentLLMHelper
 except ImportError:
     from models import PersonaIdentifyAction, PersonaIdentifyObservation, PersonaIdentifyState
     from datamodels import ProductReview
-    from evalhelpers import calculate_persona_reward, calculate_product_ranking_reward, task3_evaluator, MAXQ
+    from evalhelpers import Task1Grader, Task2Grader, Task3Grader, MAXQ
     from utils import get_all_personas, get_personas, make_basket, get_real_purchases
     from llm import PersistentLLMHelper
 
@@ -233,7 +233,7 @@ class PersonaidentifyEnvironment(Environment):
         true_personas = self._current_user["persona"]["all"]
         purchase_history = get_real_purchases(self.DATA, self._current_user['user_id'])
 
-        reward = task3_evaluator(
+        reward = Task3Grader().task3_evaluator(
             pred_actions=action.predictions,
             ranked_products=action.ranked_products,
             true_personas_list=true_personas,
@@ -290,11 +290,11 @@ class PersonaidentifyEnvironment(Environment):
 
         # ---- Score current user (Tasks 1 & 2) --------------------------
         if self.task == 2:
-            step_reward = calculate_product_ranking_reward(
+            step_reward = Task2Grader().calculate_product_ranking_reward(
                 get_real_purchases(self.DATA, uid), action.ranked_products
             )
         else:
-            step_reward = calculate_persona_reward(
+            step_reward = Task1Grader().calculate_persona_reward(
                 self._current_user["persona"]["all"], action.predictions
             )
 
