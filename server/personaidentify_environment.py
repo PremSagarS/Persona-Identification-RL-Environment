@@ -23,63 +23,11 @@ from openenv.core.env_server.types import State
 try:
     from ..models import Task1State, Task1Action, Task1Observation
     from ..datamodels import ProductReview
+    from ..evalhelpers import calculate_persona_reward
 except ImportError:
     from models import Task1Observation, Task1Action, Task1State
     from datamodels import ProductReview
-
-def calculate_persona_reward(true_personas_list, pred_actions):
-    """
-    Calculates a magnitude-aware cosine similarity reward.
-    
-    Args:
-        true_personas_list: List of dicts e.g. [{'persona': 'A', 'confidence': 0.8}]
-        pred_actions: List of objects with .persona and .confidence attributes
-    """
-    # 1. Convert to dictionaries for easy lookup
-    TruePersonas = {p['persona']: p['confidence'] for p in true_personas_list}
-    PredPersonas = {p.persona: p.confidence for p in pred_actions}
-
-    # 2. Identify all active personas (the union)
-    active_keys = set(TruePersonas.keys()) | set(PredPersonas.keys())
-    
-    if not active_keys:
-        return 1.0  # Perfect match on an empty profile
-
-    # 3. Calculate Dot Product and Squared Magnitudes
-    dot_product = 0.0
-    true_mag_sq = 0.0
-    pred_mag_sq = 0.0
-
-    for p in active_keys:
-        t = TruePersonas.get(p, 0.0)
-        p_val = PredPersonas.get(p, 0.0)
-        
-        dot_product += t * p_val
-        true_mag_sq += t ** 2
-        pred_mag_sq += p_val ** 2
-
-    # 4. Handle Zero Vectors (Zero Prediction Trap)
-    if true_mag_sq == 0 or pred_mag_sq == 0:
-        # If truth has data but pred is empty (or vice versa), reward is 0.
-        return 1.0 if true_mag_sq == pred_mag_sq else 0.0
-
-    # 5. Calculate Magnitudes
-    true_mag = math.sqrt(true_mag_sq)
-    pred_mag = math.sqrt(pred_mag_sq)
-
-    # 6. Calculate Cosine Similarity (The 'Angle' / Direction)
-    cosine_sim = dot_product / (true_mag * pred_mag)
-
-    # 7. Calculate Magnitude Ratio (The 'Scale' / Completeness)
-    # We use min/max so that over-predicting also lowers the reward.
-    magnitude_ratio = min(true_mag, pred_mag) / max(true_mag, pred_mag)
-
-    # 8. Final Combined Reward
-    # In your 3-persona vs 1-persona test, this drops 0.655 down to ~0.43
-    reward = cosine_sim * magnitude_ratio
-
-    # Bound check for floating point safety
-    return max(0.0, min(1.0, reward))
+    from evalhelpers import calculate_persona_reward
 
 class PersonaidentifyEnvironment(Environment):
     """

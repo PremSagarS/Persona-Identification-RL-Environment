@@ -10,6 +10,11 @@ class ProductReview(BaseModel):
     description: str
     review_text: str
 
+class Product(BaseModel):
+    title: str
+    price: float | None
+    description: str
+
 class PersonaPrediction(BaseModel):
     persona: str
     confidence: float
@@ -20,3 +25,8 @@ class PersonaPrediction(BaseModel):
         if not (0.0 <= v <= 1.0):
             raise ValueError(f"Confidence must be [0, 1], got {v}")
         return v
+
+class Persona(BaseModel):
+    name: str
+    description: str
+    signals: List[str]

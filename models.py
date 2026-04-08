@@ -16,11 +16,19 @@ from typing import Literal, List
 
 import json
 
-from datamodels import ProductReview, PersonaPrediction
+from datamodels import ProductReview, PersonaPrediction, Product, Persona
 
 class Task1Observation(Observation):
     task: Literal[1] = 1
+    instruction: str = "TODO"
     purchase_history: list[ProductReview]
+
+class Task2Observation(Observation):
+    task: Literal[2] = 2
+    instruction: str = "TODO"
+    personaLabels: List[PersonaPrediction]
+    personas: List[Persona]
+    basket: List[Product]
 
 class Task1Action(Action):
     predictions: list[PersonaPrediction]
@@ -35,6 +43,9 @@ class Task1Action(Action):
                 # If it's not valid JSON, let Pydantic raise the standard error
                 pass
         return v
+
+class Task2Action(Action):
+    ranked_products: List[Product]
 
 class Task1State(State):
     user_id: str
