@@ -9,7 +9,7 @@ W2 = 0.5
 W3 = 0.3
 
 class Task1Grader:
-    def calculate_persona_reward(self, true_personas_list = None, pred_actions = None):
+    def grade(self, true_personas_list = None, pred_actions = None):
         """
         Calculates a magnitude-aware cosine similarity reward.
         
@@ -55,7 +55,7 @@ class Task1Grader:
         return max(0.0, min(1.0, reward))
 
 class Task2Grader:
-    def calculate_product_ranking_reward(self, purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
+    def grade(self, purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
         """
         Calculates the Mean Average Precision (MAP) for the ranked list.
         Returns a float between 0.0 and 1.0.
@@ -83,13 +83,13 @@ class Task2Grader:
         return float(avg_precision)
 
 class Task3Grader:
-    def task3_evaluator(self, pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
+    def grade(self, pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
 
         if pred_actions == None or ranked_products == None or true_personas_list == None or purchase_history == None or numq == None:
             return 0.01
         
-        e1 = Task1Grader().calculate_persona_reward(true_personas_list, pred_actions)
-        e2 = Task2Grader().calculate_product_ranking_reward(purchase_history, ranked_products)
+        e1 = Task1Grader().grade(true_personas_list, pred_actions)
+        e2 = Task2Grader().grade(purchase_history, ranked_products)
         e3 = (MAXQ - numq) / MAXQ
 
         return e1 * W1 + e2 * W2 + e3 * W3
@@ -109,4 +109,4 @@ if __name__ == "__main__":
 
     basket = [p.title for p in basket]
 
-    print(Task2Grader().calculate_product_ranking_reward(real_purchases, basket))
+    print(Task2Grader().grade(real_purchases, basket))

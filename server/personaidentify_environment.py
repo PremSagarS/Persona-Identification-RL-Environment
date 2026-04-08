@@ -233,7 +233,7 @@ class PersonaidentifyEnvironment(Environment):
         true_personas = self._current_user["persona"]["all"]
         purchase_history = get_real_purchases(self.DATA, self._current_user['user_id'])
 
-        reward = Task3Grader().task3_evaluator(
+        reward = Task3Grader().grade(
             pred_actions=action.predictions,
             ranked_products=action.ranked_products,
             true_personas_list=true_personas,
@@ -290,11 +290,11 @@ class PersonaidentifyEnvironment(Environment):
 
         # ---- Score current user (Tasks 1 & 2) --------------------------
         if self.task == 2:
-            step_reward = Task2Grader().calculate_product_ranking_reward(
+            step_reward = Task2Grader().grade(
                 get_real_purchases(self.DATA, uid), action.ranked_products
             )
         else:
-            step_reward = Task1Grader().calculate_persona_reward(
+            step_reward = Task1Grader().grade(
                 self._current_user["persona"]["all"], action.predictions
             )
 
