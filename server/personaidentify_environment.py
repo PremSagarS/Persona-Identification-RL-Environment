@@ -101,7 +101,8 @@ class PersonaidentifyEnvironment(Environment):
             done = False,
             reward=0.0,
             task=1,
-            purchase_history=purchaseHistory
+            purchase_history=purchaseHistory,
+            personas=get_all_personas(self.PERSONADATA)
         )
 
     def step(self, action: PersonaIdentifyAction) -> PersonaIdentifyObservation:  # type: ignore[override]
@@ -127,7 +128,6 @@ class PersonaidentifyEnvironment(Environment):
             )
 
         reward = calculate_persona_reward(self.user["persona"]["all"], action.predictions)
-
         return PersonaIdentifyObservation(
             task=1,
             done=True,
