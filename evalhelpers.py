@@ -9,8 +9,8 @@ W2 = 0.5
 W3 = 0.3
 
 def clamp(x: float) -> float:
-    if x <= 0: return 0.1
-    if x >= 1: return 0.9
+    if x <= 0: return 0.01
+    if x >= 1: return 0.99
     return x
 
 class Task1Grader:
