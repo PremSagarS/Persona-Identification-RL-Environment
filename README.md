@@ -64,7 +64,6 @@ The current Task 3 reward configuration is:
 with `MAXQ = 5`.
 
 This grading structure gives the benchmark a useful mix of deterministic evaluation and interactive reasoning pressure:
-
 - persona inference rewards calibrated structure rather than raw label guessing,
 - recommendation quality is measured directly on ranked outputs,
 - cold-start behavior is encouraged to be both informative and concise.
@@ -199,6 +198,45 @@ The state model contains:
 - `user_id`
 - `task`
 
+## Running the Environment
+
+### Local Evaluator Setup
+
+The Task 3 shopper simulator is backed by `PersistentLLMHelper` in `llm.py`. That helper loads environment variables from `.env` when available and reads the following keys at startup:
+
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `LLM_MODEL_NAME`
+
+Set them before running the environment locally:
+
+```bash
+export OPENAI_API_KEY=...
+export OPENAI_BASE_URL=...
+export LLM_MODEL_NAME=...
+```
+
+You can also place the same values in a local `.env` file because `llm.py` calls `load_dotenv()` on startup.
+
+Start the environment locally with:
+
+```bash
+uv sync
+uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Hosted Environment
+
+If you want to interact with an already live deployment instead of running the environment locally, use:
+
+```text
+https://premsagars-personaidentify.hf.space/
+```
+
+This hosted deployment can be used as the base URL for direct interaction with the environment. For browser-based exploration, use the same host with the OpenEnv web and docs routes:
+
+- `https://premsagars-personaidentify.hf.space/web`
+- `https://premsagars-personaidentify.hf.space/docs`
 
 ## Repository Map
 
@@ -213,17 +251,6 @@ The state model contains:
 - `inference.py`: baseline driver for model-based Task 1 and Task 2 evaluation
 - `validate-submission.sh`: submission validation workflow for deployment readiness
 
-## Benchmark Configuration and Tuning
-
-The benchmark exposes a compact set of configuration levers that shape task difficulty and reward balance:
-
-- `USERS_PER_EPISODE = 5` in `server/personaidentify_environment.py` controls the multi-user episode length for Tasks 1 and 2.
-- `MAXQ = 5` in `evalhelpers.py` sets the Task 3 question budget.
-- `W1 = 0.2`, `W2 = 0.5`, and `W3 = 0.3` weight persona quality, ranking quality, and question efficiency in Task 3.
-- basket construction in `utils.py` determines how many real purchases and sampled decoys appear in Task 2.
-- evaluator model settings in `llm.py` shape the interaction behavior of the cold-start shopper simulation.
-
-These controls make it straightforward to tune ranking difficulty, interaction cost, and reward composition while preserving the benchmark's overall structure.
 ## Benchmark Configuration and Tuning
 
 The benchmark exposes a compact set of configuration levers that shape task difficulty and reward balance:
