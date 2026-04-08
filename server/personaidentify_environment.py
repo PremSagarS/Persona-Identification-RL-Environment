@@ -21,13 +21,15 @@ from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
 try:
-    from ..models import Task1State, Task1Action, Task1Observation
+    from ..models import PersonaIdentifyAction, PersonaIdentifyObservation, PersonaIdentifyState
     from ..datamodels import ProductReview
-    from ..evalhelpers import calculate_persona_reward
+    from ..evalhelpers import calculate_persona_reward, calculate_product_ranking_reward
+    from ..utils import get_all_personas, get_personas, make_basket, get_real_purchases
 except ImportError:
-    from models import Task1Observation, Task1Action, Task1State
+    from models import PersonaIdentifyAction, PersonaIdentifyObservation, PersonaIdentifyState
     from datamodels import ProductReview
-    from evalhelpers import calculate_persona_reward
+    from evalhelpers import calculate_persona_reward, calculate_product_ranking_reward
+    from utils import get_all_personas, get_personas, make_basket, get_real_purchases
 
 class PersonaidentifyEnvironment(Environment):
     """
@@ -54,13 +56,14 @@ class PersonaidentifyEnvironment(Environment):
 
     def __init__(self):
         """Initialize the personaidentify environment."""
-        self._state = Task1State(episode_id=str(uuid4()), step_count=0, user_id="")
+        self._state = PersonaIdentifyState(episode_id=str(uuid4()), step_count=0, user_id="", task=1)
         self._reset_count = 0
 
         self.DATA = json.load(open("server/user_personas.json"))
+        self.PERSONADATA = json.load(open("server/persona_catalogue.json"))
 
 
-    def reset(self) -> Task1Observation:    
+    def reset(self, task: int = 2) -> PersonaIdentifyObservation:    
         """
         Reset the environment.
 
@@ -69,8 +72,20 @@ class PersonaidentifyEnvironment(Environment):
         """
         self.user = random.choice(self.DATA)
         self.user_id = self.user['user_id']
-        self._state = Task1State(episode_id=str(uuid4()), step_count=0, user_id=self.user_id)
+        self.task = task
+
+        self._state = PersonaIdentifyState(episode_id=str(uuid4()), step_count=0, user_id=self.user_id, task=self.task)
         self._reset_count += 1
+
+        if task == 2:
+            return PersonaIdentifyObservation(
+                task=2,
+                done = False,
+                reward=0.0,
+                personas=get_all_personas(self.PERSONADATA),
+                basket=make_basket(self.DATA, self.user_id),
+                persona_labels=get_personas(self.DATA, self.user_id)
+            )
 
         purchaseHistory = []
         for item in self.user['purchase_history']:
@@ -82,14 +97,14 @@ class PersonaidentifyEnvironment(Environment):
                                                  ))
 
 
-        return Task1Observation(
+        return PersonaIdentifyObservation(
             done = False,
             reward=0.0,
             task=1,
             purchase_history=purchaseHistory
         )
 
-    def step(self, action: Task1Action) -> Task1Observation:  # type: ignore[override]
+    def step(self, action: PersonaIdentifyAction) -> PersonaIdentifyObservation:  # type: ignore[override]
         """
         Execute a step in the environment by echoing the message.
 
@@ -100,17 +115,27 @@ class PersonaidentifyEnvironment(Environment):
             PersonaidentifyObservation with the echoed message and its length
         """
         self._state.step_count += 1
+
+        assert self.task == action.task
+
+        if self.task == 2:
+            reward = calculate_product_ranking_reward(get_real_purchases(self.DATA, self.user_id), action.ranked_products)
+            return PersonaIdentifyObservation(
+                task=2,
+                done=True,
+                reward=reward,
+            )
+
         reward = calculate_persona_reward(self.user["persona"]["all"], action.predictions)
 
-        return Task1Observation(
+        return PersonaIdentifyObservation(
+            task=1,
             done=True,
             reward=reward,
-            task=1,
-            purchase_history=[]
         )
 
     @property
-    def state(self) -> Task1State:
+    def state(self) -> PersonaIdentifyState:
         """
         Get the current environment state.
 

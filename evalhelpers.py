@@ -45,7 +45,7 @@ def calculate_persona_reward(true_personas_list, pred_actions):
 
     return max(0.0, min(1.0, reward))
 
-def calculate_product_ranking_reward(purchase_history: list[Product], ranked_products: list[Product]) -> float:
+def calculate_product_ranking_reward(purchase_history: list[Product], ranked_products: list[str]) -> float:
     """
     Calculates the Mean Average Precision (MAP) for the ranked list.
     Returns a float between 0.0 and 1.0.
@@ -61,7 +61,7 @@ def calculate_product_ranking_reward(purchase_history: list[Product], ranked_pro
     for i, product in enumerate(ranked_products):
         rank = i + 1
         
-        if product.title in true_titles:
+        if product in true_titles:
             relevant_found += 1
             precision_at_k = relevant_found / rank
             running_precision_sum += precision_at_k
@@ -82,5 +82,7 @@ if __name__ == "__main__":
 
     pprint(real_purchases)
     pprint(basket)
+
+    basket = [p.title for p in basket]
 
     print(calculate_product_ranking_reward(real_purchases, basket))

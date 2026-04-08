@@ -1,8 +1,24 @@
-from datamodels import Product
+from datamodels import Product, Persona, PersonaPrediction
 from typing import List
 import random
 
-from pprint import pprint
+def get_all_personas(PDATA) -> List[Persona]:
+    personas = []
+    for p in PDATA:
+        personas.append(Persona(name = p['name'], description=p['description'], signals=p['signals']))
+    return personas
+
+def get_personas(DATA, user_id: str) -> List[PersonaPrediction]:
+    target_user = None
+    for u in DATA:
+        if u['user_id'] == user_id:
+            target_user = u
+    
+    retval = []
+    for p in target_user['persona']['all']:
+        retval.append(PersonaPrediction(persona = p['persona'], confidence=p['confidence']))
+    
+    return retval
 
 def get_real_purchases(DATA, user_id: str) -> List[Product]:
     target_user = None
@@ -33,12 +49,7 @@ def make_basket(DATA, user_id: str) -> List[Product]:
         else:
             other_users.append(u)
     
-    real_purchases = [
-        Product(title=item['title'],
-                price = item['price'],
-                description=item['description'])
-        for item in target_user['purchase_history']
-    ][:5]
+    real_purchases = get_real_purchases(DATA, user_id)
 
     potential_decoys: List[Product] = []
     for user in other_users:
@@ -46,7 +57,7 @@ def make_basket(DATA, user_id: str) -> List[Product]:
             Product(title=item['title'],
                     price = item['price'],
                     description=item['description'])
-            for item in target_user['purchase_history']
+            for item in user['purchase_history']
     ])
     
     real_titles = {p.title for p in real_purchases}
@@ -71,6 +82,15 @@ def make_basket(DATA, user_id: str) -> List[Product]:
 
 if __name__ == "__main__":
     import json
+    from pprint import pprint
+
     DATA = json.load(open("server/user_personas.json"))
     retval = make_basket(DATA, DATA[0]['user_id'])
     pprint(retval)
+
+    retval = get_personas(DATA, DATA[0]['user_id'])
+    pprint(retval)
+
+    # DATA = json.load(open("server/persona_catalogue.json"))
+    # retval = get_all_personas(DATA)
+    # pprint(retval)

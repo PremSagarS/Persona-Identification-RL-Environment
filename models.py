@@ -6,46 +6,56 @@
 
 """
 Data models for the Personaidentify Environment.
-
-The personaidentify environment is a simple test environment that echoes back messages.
 """
 
 from openenv.core.env_server.types import Action, Observation, State
-from pydantic import Field, BaseModel, field_validator
+from pydantic import field_validator
 from typing import Literal, List
 
 import json
 
 from datamodels import ProductReview, PersonaPrediction, Product, Persona
 
-class Task1Observation(Observation):
-    task: Literal[1] = 1
+
+class PersonaIdentifyObservation(Observation):
+    task: Literal[1, 2]
     instruction: str = "TODO"
-    purchase_history: list[ProductReview]
+    # Task 1
+    purchase_history: List[ProductReview] | None = None
+    # Task 2
+    persona_labels: List[PersonaPrediction] | None = None
+    personas: List[Persona] | None = None
+    basket: List[Product] | None = None
 
-class Task2Observation(Observation):
-    task: Literal[2] = 2
-    instruction: str = "TODO"
-    personaLabels: List[PersonaPrediction]
-    personas: List[Persona]
-    basket: List[Product]
 
-class Task1Action(Action):
-    predictions: list[PersonaPrediction]
+class PersonaIdentifyAction(Action):
+    task: Literal[1, 2]
+    # Task 1
+    predictions: List[PersonaPrediction] | None = None
+    # Task 2
+    ranked_products: List[str] | None = None
 
-    @field_validator('predictions', mode='before')
+    @field_validator('ranked_products', mode='before')
     @classmethod
-    def handle_web_interface_strings(cls, v):
+    def handle_web_interface_strings_ranked_products(cls, v):
         if isinstance(v, str):
             try:
                 return json.loads(v)
             except json.JSONDecodeError:
-                # If it's not valid JSON, let Pydantic raise the standard error
                 pass
         return v
 
-class Task2Action(Action):
-    ranked_products: List[Product]
+    @field_validator('predictions', mode='before')
+    @classmethod
+    def handle_web_interface_strings_predictions(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                pass
+        return v
 
-class Task1State(State):
+
+class PersonaIdentifyState(State):
+    task: Literal[1, 2]
     user_id: str

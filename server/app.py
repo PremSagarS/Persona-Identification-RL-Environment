@@ -36,18 +36,18 @@ except Exception as e:  # pragma: no cover
     ) from e
 
 try:
-    from ..models import Task1Observation, Task1Action
+    from ..models import PersonaIdentifyState, PersonaIdentifyAction, PersonaIdentifyObservation
     from .personaidentify_environment import PersonaidentifyEnvironment
 except ImportError:
-    from models import Task1Action, Task1Observation
+    from models import PersonaIdentifyState, PersonaIdentifyAction, PersonaIdentifyObservation
     from server.personaidentify_environment import PersonaidentifyEnvironment
 
 
 # Create the app with web interface and README integration
 app = create_app(
     PersonaidentifyEnvironment,
-    Task1Action,
-    Task1Observation,
+    PersonaIdentifyAction,
+    PersonaIdentifyObservation,
     env_name="personaidentify",
     max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
 )
