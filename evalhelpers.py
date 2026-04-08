@@ -23,7 +23,7 @@ class Task1Grader:
             pred_actions: List of objects with .persona and .confidence attributes
         """
 
-        if true_personas_list == None or pred_actions == None: return 0.01
+        if true_personas_list == None or pred_actions == None: return clamp(0.01)
 
         TruePersonas = {p['persona']: p['confidence'] for p in true_personas_list}
         PredPersonas = {p.persona: p.confidence for p in pred_actions}
@@ -31,7 +31,7 @@ class Task1Grader:
         active_keys = set(TruePersonas.keys()) | set(PredPersonas.keys())
         
         if not active_keys:
-            return 1.0
+            return clamp(1.0)
 
         dot_product = 0.0
         true_mag_sq = 0.0
@@ -46,7 +46,7 @@ class Task1Grader:
             pred_mag_sq += p_val ** 2
 
         if true_mag_sq == 0 or pred_mag_sq == 0:
-            return 1.0 if true_mag_sq == pred_mag_sq else 0.0
+            return clamp(1.0) if true_mag_sq == pred_mag_sq else clamp(0.0)
 
         true_mag = math.sqrt(true_mag_sq)
         pred_mag = math.sqrt(pred_mag_sq)
@@ -65,12 +65,12 @@ class Task2Grader:
         Calculates the Mean Average Precision (MAP) for the ranked list.
         Returns a float between 0.0 and 1.0.
         """
-        if purchase_history == None or ranked_products == None: return 0.01
+        if purchase_history == None or ranked_products == None: return clamp(0.01)
 
         true_titles = {p.title for p in purchase_history}
         
         if not true_titles or not ranked_products:
-            return 0.0
+            return clamp(0.0)
 
         relevant_found = 0
         running_precision_sum = 0.0
@@ -91,7 +91,7 @@ class Task3Grader:
     def grade(self, pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
 
         if pred_actions == None or ranked_products == None or true_personas_list == None or purchase_history == None or numq == None:
-            return 0.01
+            return clamp(0.01)
         
         e1 = Task1Grader().grade(true_personas_list, pred_actions)
         e2 = Task2Grader().grade(purchase_history, ranked_products)
