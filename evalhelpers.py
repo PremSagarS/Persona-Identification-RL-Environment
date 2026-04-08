@@ -8,6 +8,11 @@ W1 = 0.2
 W2 = 0.5
 W3 = 0.3
 
+def clamp(x: float) -> float:
+    if x <= 0: return 0.1
+    if x >= 1: return 0.9
+    return x
+
 class Task1Grader:
     def grade(self, true_personas_list = None, pred_actions = None):
         """
@@ -52,7 +57,7 @@ class Task1Grader:
 
         reward = cosine_sim * magnitude_ratio
 
-        return max(0.0, min(1.0, reward))
+        return clamp(max(0.0, min(1.0, reward)))
 
 class Task2Grader:
     def grade(self, purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
@@ -80,7 +85,7 @@ class Task2Grader:
 
         avg_precision = running_precision_sum / len(true_titles)
 
-        return float(avg_precision)
+        return clamp(float(avg_precision))
 
 class Task3Grader:
     def grade(self, pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
@@ -92,7 +97,7 @@ class Task3Grader:
         e2 = Task2Grader().grade(purchase_history, ranked_products)
         e3 = (MAXQ - numq) / MAXQ
 
-        return e1 * W1 + e2 * W2 + e3 * W3
+        return clamp(e1 * W1 + e2 * W2 + e3 * W3)
 
 if __name__ == "__main__":
     import json
