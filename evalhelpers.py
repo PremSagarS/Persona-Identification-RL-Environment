@@ -8,7 +8,7 @@ W1 = 0.2
 W2 = 0.5
 W3 = 0.3
 
-def calculate_persona_reward(true_personas_list, pred_actions):
+def calculate_persona_reward(true_personas_list = None, pred_actions = None):
     """
     Calculates a magnitude-aware cosine similarity reward.
     
@@ -16,6 +16,9 @@ def calculate_persona_reward(true_personas_list, pred_actions):
         true_personas_list: List of dicts e.g. [{'persona': 'A', 'confidence': 0.8}]
         pred_actions: List of objects with .persona and .confidence attributes
     """
+
+    if true_personas_list == None or pred_actions == None: return 0.01
+
     TruePersonas = {p['persona']: p['confidence'] for p in true_personas_list}
     PredPersonas = {p.persona: p.confidence for p in pred_actions}
 
@@ -50,11 +53,13 @@ def calculate_persona_reward(true_personas_list, pred_actions):
 
     return max(0.0, min(1.0, reward))
 
-def calculate_product_ranking_reward(purchase_history: list[Product], ranked_products: list[str]) -> float:
+def calculate_product_ranking_reward(purchase_history: list[Product] = None, ranked_products: list[str] = None) -> float:
     """
     Calculates the Mean Average Precision (MAP) for the ranked list.
     Returns a float between 0.0 and 1.0.
     """
+    if purchase_history == None or ranked_products == None: return 0.01
+
     true_titles = {p.title for p in purchase_history}
     
     if not true_titles or not ranked_products:
@@ -75,7 +80,11 @@ def calculate_product_ranking_reward(purchase_history: list[Product], ranked_pro
 
     return float(avg_precision)
 
-def task3_evaluator(pred_actions, ranked_products, true_personas_list, purchase_history, numq):
+def task3_evaluator(pred_actions = None, ranked_products = None, true_personas_list = None, purchase_history = None, numq = None):
+
+    if pred_actions == None or ranked_products == None or true_personas_list == None or purchase_history == None or numq == None:
+        return 0.01
+    
     e1 = calculate_persona_reward(true_personas_list, pred_actions)
     e2 = calculate_product_ranking_reward(purchase_history, ranked_products)
     e3 = (MAXQ - numq) / MAXQ
