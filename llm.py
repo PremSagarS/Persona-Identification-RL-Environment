@@ -9,7 +9,7 @@ except:
     pass
 
 class PersistentLLMHelper:
-    def __init__(self):
+    def __init__(self, system_prompt):
         # Fetch configurations with fallbacks
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("OPENAI_BASE_URL")
@@ -22,7 +22,7 @@ class PersistentLLMHelper:
 
         # This list stores the conversation history
         self.history = [
-            {"role": "system", "content": "You are a helpful assistant."}
+            {"role": "system", "content": system_prompt}
         ]
 
     def prompt(self, msg: str) -> str:
