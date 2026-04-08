@@ -3,6 +3,11 @@ import math
 from datamodels import Product
 from utils import get_real_purchases, make_basket
 
+MAXQ = 5
+W1 = 0.2
+W2 = 0.5
+W3 = 0.3
+
 def calculate_persona_reward(true_personas_list, pred_actions):
     """
     Calculates a magnitude-aware cosine similarity reward.
@@ -69,6 +74,13 @@ def calculate_product_ranking_reward(purchase_history: list[Product], ranked_pro
     avg_precision = running_precision_sum / len(true_titles)
 
     return float(avg_precision)
+
+def task3_evaluator(pred_actions, ranked_products, true_personas_list, purchase_history, numq):
+    e1 = calculate_persona_reward(true_personas_list, pred_actions)
+    e2 = calculate_product_ranking_reward(purchase_history, ranked_products)
+    e3 = (MAXQ - numq) / MAXQ
+
+    return e1 * W1 + e2 * W2 + e3 * W3
 
 if __name__ == "__main__":
     import json

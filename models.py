@@ -18,7 +18,7 @@ from datamodels import ProductReview, PersonaPrediction, Product, Persona
 
 
 class PersonaIdentifyObservation(Observation):
-    task: Literal[1, 2]
+    task: Literal[1, 2, 3]
     instruction: str = "TODO"
     # Task 1
     purchase_history: List[ProductReview] | None = None
@@ -27,14 +27,19 @@ class PersonaIdentifyObservation(Observation):
     personas: List[Persona] | None = None
     basket: List[Product] | None = None
     users_remaining: int | None = None
+    
+    text_reply: str | None = None
+    start_intro: str | None = None
 
 
 class PersonaIdentifyAction(Action):
-    task: Literal[1, 2]
+    task: Literal[1, 2, 3]
     # Task 1
     predictions: List[PersonaPrediction] | None = None
     # Task 2
     ranked_products: List[str] | None = None
+    # Task 3
+    text_question: str | None = None
 
     @field_validator('ranked_products', mode='before')
     @classmethod
@@ -58,5 +63,5 @@ class PersonaIdentifyAction(Action):
 
 
 class PersonaIdentifyState(State):
-    task: Literal[1, 2]
+    task: Literal[1, 2, 3]
     user_id: str
