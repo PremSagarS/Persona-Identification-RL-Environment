@@ -1,0 +1,95 @@
+[
+  {
+    "name": "Bargain Hunter",
+    "description": "Seeks cheap deals, buys discounted items.",
+    "signals": [
+      "low price",
+      "high volume"
+    ]
+  },
+  {
+    "name": "Music Enthusiast",
+    "description": "Passionate about music, collects rare and unique items.",
+    "signals": [
+      "rare items",
+      "high price",
+      "positive reviews"
+    ]
+  },
+  {
+    "name": "Collector",
+    "description": "Seeks to collect complete sets, rare items, and limited editions.",
+    "signals": [
+      "complete sets",
+      "limited editions",
+      "high price"
+    ],
+    "subtypes": [
+      "Experienced Collector"
+    ]
+  },
+  {
+    "name": "Casual Fan",
+    "description": "Enjoys music, but doesn't have a deep passion for it.",
+    "signals": [
+      "average price",
+      "positive reviews",
+      "high volume"
+    ]
+  },
+  {
+    "name": "Quality Seeker",
+    "description": "Prioritizes high-quality products, often willing to pay more for them.",
+    "signals": [
+      "high price",
+      "positive reviews",
+      "good product description"
+    ]
+  },
+  {
+    "name": "Researcher",
+    "description": "Thoroughly researches products before making a purchase.",
+    "signals": [
+      "positive reviews",
+      "good product description",
+      "high price"
+    ]
+  },
+  {
+    "name": "Impulse Buyer",
+    "description": "Makes spontaneous purchases, often based on emotions or impulse.",
+    "signals": [
+      "low price",
+      "high volume",
+      "positive reviews"
+    ]
+  },
+  {
+    "name": "Brand Loyalist",
+    "description": "Favors specific brands, often loyal to them.",
+    "signals": [
+      "brand name",
+      "positive reviews",
+      "high price"
+    ]
+  },
+  {
+    "name": "Value Seeker",
+    "description": "Prioritizes value for money, often looking for deals and discounts.",
+    "signals": [
+      "low price",
+      "high volume",
+      "positive reviews"
+    ]
+  },
+  {
+    "name": "Sentimental Buyer",
+    "description": "Values sentimental items, buys romantic music and gifts.",
+    "signals": [
+      "romantic music",
+      "product description with sentimental details",
+      "retro music",
+      "product description with nostalgic details"
+    ]
+  }
+]
