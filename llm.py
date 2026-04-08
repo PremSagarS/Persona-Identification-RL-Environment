@@ -11,9 +11,9 @@ except:
 class PersistentLLMHelper:
     def __init__(self, system_prompt):
         # Fetch configurations with fallbacks
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.base_url = os.getenv("OPENAI_BASE_URL")
-        self.model = os.getenv("LLM_MODEL_NAME")
+        self.api_key = os.getenv("HF_TOKEN")
+        self.base_url = os.getenv("API_BASE_URL")
+        self.model = os.getenv("MODEL_NAME")
 
         self.client = openai.OpenAI(
             api_key=self.api_key,
