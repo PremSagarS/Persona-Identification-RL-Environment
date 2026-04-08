@@ -1,7 +1,7 @@
 """
 Inference Script
 ================
-It runs one episode for `task=1` (persona predictions) and one episode for `task=2` (product ranking)
+It runs one episode for `task=1` (persona predictions), one episode for `task=2` (product ranking) and one episode for `task=3` (asking questions + recommendation)
 """
 
 import asyncio
@@ -48,6 +48,36 @@ SYSTEM_PROMPT_P2 = textwrap.dedent(
     """
 ).strip()
 
+SYSTEM_PROMPT_P3 = textwrap.dedent(
+        """
+        You are interacting with a simulated shopper. You will be given the shopper's
+        short introduction and the list of candidate personas (name + description).
+        You must respond with a single JSON object describing your next action.
+
+        Two action types are allowed:
+        1) Question: {"action": "question", "text": "<your question>"}
+        2) Recommend: {"action": "recommend", "predictions": [{"persona": "<label>", "confidence": <0-1>}], "ranked_products": ["prod A", "prod B", ...]}
+
+        Priorities:
+            W1 = 0.2
+            W2 = 0.5
+            W3 = 0.3
+            e1 = reward for finding persona
+            e2 = reward for product ranking quality
+            e3 = (Maximum number of questions - number of questions asked) / Maximum number of questions
+
+            Evaluation = e1 * W1 + e2 * W2 + e3 * W3
+
+            According to the evaluation function, the highest priority is to find the recommended products accurately, then to minimize the number of questions asked.
+
+        Rules:
+        - Follow the priorities and evaluation function to decide whether to ask a question or make a recommendation.
+        - If you need more information, ask a short clarifying question using the Question action.
+        - If you are ready to recommend, use the Recommend action and include a ranked list of product titles
+            and persona predictions with confidences that sum roughly to 1.0 (or leave confidences as reasonable values).
+        - Return only the JSON object, no commentary.
+        """
+).strip()
 
 def log_start(task: int, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
@@ -145,6 +175,34 @@ def get_ranked_products(client: OpenAI, obs) -> List[str]:
     return [p.title for p in (obs.basket or [])]
 
 
+def build_task3_prompt(start_intro: str, personas: list, history: List[dict]) -> str:
+    personas_serialized = [ {"name": p.name, "description": p.description} for p in (personas or []) ]
+    prompt = json.dumps(
+        {
+            "start_intro": start_intro,
+            "personas": personas_serialized,
+            "history": history,
+        }
+    )
+    return prompt
+
+
+def get_task3_action(client: OpenAI, start_intro: str, personas: list, history: List[dict]) -> dict:
+    user_prompt = build_task3_prompt(start_intro, personas, history)
+    text = _call_model_for_text(client, SYSTEM_PROMPT_P3, user_prompt)
+    parsed = None
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        parsed = parse_json_or_fallback(text)
+
+    if isinstance(parsed, dict) and parsed.get("action") in ("question", "recommend"):
+        return parsed
+
+    # Fallback: ask a clarification question if we don't understand model output
+    return {"action": "question", "text": "Can you tell me briefly what kinds of products you prefer?"}
+
+
 async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
@@ -155,21 +213,34 @@ async def main() -> None:
     try:
         obs = env.reset(task=1)
 
-        preds = get_persona_predictions(client, obs)
+        rewards: List[float] = []
+        steps_taken = 0
 
-        action = PersonaIdentifyAction(task=1, predictions=[ {"persona": p.persona, "confidence": p.confidence} for p in preds ])
-        action_str = json.dumps([{"persona": p.persona, "confidence": p.confidence} for p in preds], separators=(",", ":"))
+        # Loop over users until environment signals done
+        while True:
+            preds = get_persona_predictions(client, obs)
 
-        result = env.step(action)
-        reward = float(result.reward or 0.0)
-        done = bool(result.done)
-        error = None
+            action = PersonaIdentifyAction(task=1, predictions=[{"persona": p.persona, "confidence": p.confidence} for p in preds])
+            action_str = json.dumps([{"persona": p.persona, "confidence": p.confidence} for p in preds], separators=(",", ":"))
 
-        log_step(step=1, action=action_str, reward=reward, done=done, error=error)
+            result = env.step(action)
+            reward = float(result.reward or 0.0)
+            done = bool(result.done)
+            error = None
 
-        score = reward
+            steps_taken += 1
+            rewards.append(reward)
+
+            log_step(step=steps_taken, action=action_str, reward=reward, done=done, error=error)
+
+            if done:
+                break
+
+            obs = result
+
+        score = sum(rewards) / len(rewards) if rewards else 0.0
         success = score >= SUCCESS_SCORE_THRESHOLD
-        log_end(success=success, steps=1, score=score, rewards=[reward])
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
     except Exception as e:
         print(f"[DEBUG] task1 failed: {e}", flush=True)
 
@@ -178,23 +249,128 @@ async def main() -> None:
     try:
         obs = env.reset(task=2)
 
-        ranked = get_ranked_products(client, obs)
+        rewards: List[float] = []
+        steps_taken = 0
 
-        action = PersonaIdentifyAction(task=2, ranked_products=ranked)
-        action_str = json.dumps(ranked, separators=(",", ":"))
+        while True:
+            ranked = get_ranked_products(client, obs)
 
-        result = env.step(action)
-        reward = float(result.reward or 0.0)
-        done = bool(result.done)
-        error = None
+            action = PersonaIdentifyAction(task=2, ranked_products=ranked)
+            action_str = json.dumps(ranked, separators=(",", ":"))
 
-        log_step(step=1, action=action_str, reward=reward, done=done, error=error)
+            result = env.step(action)
+            reward = float(result.reward or 0.0)
+            done = bool(result.done)
+            error = None
 
-        score = reward
+            steps_taken += 1
+            rewards.append(reward)
+
+            log_step(step=steps_taken, action=action_str, reward=reward, done=done, error=error)
+
+            if done:
+                break
+
+            obs = result
+
+        score = sum(rewards) / len(rewards) if rewards else 0.0
         success = score >= SUCCESS_SCORE_THRESHOLD
-        log_end(success=success, steps=1, score=score, rewards=[reward])
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
     except Exception as e:
         print(f"[DEBUG] task2 failed: {e}", flush=True)
+
+    # Task 3 : cold-start dialogue + recommendation
+    log_start(task=3, env=BENCHMARK, model=MODEL_NAME)
+    try:
+        obs = env.reset(task=3)
+
+        start_intro = getattr(obs, "start_intro", "")
+        personas = getattr(obs, "personas", [])
+
+        history: List[dict] = []
+        rewards: List[float] = []
+
+        # initial system-provided intro (agent should see and may ask)
+        # We treat the initial intro as a text_reply from the user for history
+        history.append({"from": "user", "text": start_intro})
+
+        score = 0.0
+        success = False
+
+        for step in range(1, MAX_STEPS + 1):
+            action_obj = get_task3_action(client, start_intro, personas, history)
+
+            if action_obj.get("action") == "question":
+                qtext = action_obj.get("text", "")
+                action = PersonaIdentifyAction(task=3, text_question=qtext)
+
+                result = env.step(action)
+                reward = float(result.reward or 0.0)
+                done = bool(result.done)
+                error = None
+
+                # record the reply from the environment/evaluator
+                reply = getattr(result, "text_reply", None) or getattr(result.observation, "text_reply", None) or ""
+                history.append({"from": "agent", "text": qtext})
+                history.append({"from": "user", "text": reply})
+
+                rewards.append(reward)
+                log_step(step=step, action=qtext, reward=reward, done=done, error=error)
+
+                # continue until model recommends or budget ends
+                if done:
+                    break
+
+                continue
+
+            # Recommend action
+            if action_obj.get("action") == "recommend":
+                preds = action_obj.get("predictions") or []
+                ranked = action_obj.get("ranked_products") or []
+
+                action = PersonaIdentifyAction(task=3, predictions=preds, ranked_products=ranked)
+
+                result = env.step(action)
+                reward = float(result.reward or 0.0)
+                done = bool(result.done)
+                error = None
+
+                rewards.append(reward)
+                log_step(step=step, action=json.dumps(action_obj, separators=(",", ":")), reward=reward, done=done, error=error)
+
+                score = reward
+                success = score >= SUCCESS_SCORE_THRESHOLD
+                log_end(success=success, steps=step, score=score, rewards=rewards)
+                break
+
+            # Unknown action -> ask a fallback question
+            fallback_q = "Can you tell me what kinds of products you like most?"
+            action = PersonaIdentifyAction(task=3, text_question=fallback_q)
+            result = env.step(action)
+            reply = getattr(result, "text_reply", None) or getattr(result.observation, "text_reply", None) or ""
+            history.append({"from": "agent", "text": fallback_q})
+            history.append({"from": "user", "text": reply})
+            reward = float(result.reward or 0.0)
+            rewards.append(reward)
+            log_step(step=step, action=fallback_q, reward=reward, done=result.done, error=None)
+
+        else:
+            # If loop completes without recommendation, force a final recommend call
+            # Ask the model to produce a final recommendation
+            final_action = get_task3_action(client, start_intro, personas, history)
+            preds = final_action.get("predictions") or []
+            ranked = final_action.get("ranked_products") or []
+            action = PersonaIdentifyAction(task=3, predictions=preds, ranked_products=ranked)
+            result = env.step(action)
+            reward = float(result.reward or 0.0)
+            rewards.append(reward)
+            score = reward
+            success = score >= SUCCESS_SCORE_THRESHOLD
+            log_step(step=MAX_STEPS + 1, action=json.dumps(final_action, separators=(",", ":")), reward=reward, done=bool(result.done), error=None)
+            log_end(success=success, steps=MAX_STEPS + 1, score=score, rewards=rewards)
+
+    except Exception as e:
+        print(f"[DEBUG] task3 failed: {e}", flush=True)
 
 
 if __name__ == "__main__":
