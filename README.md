@@ -238,6 +238,32 @@ This hosted deployment can be used as the base URL for direct interaction with t
 - `https://premsagars-personaidentify.hf.space/web`
 - `https://premsagars-personaidentify.hf.space/docs`
 
+### Baseline Inference Script
+
+`inference.py` runs a lightweight baseline flow over Task 1 and Task 2. It instantiates `PersonaidentifyEnvironment` directly, prompts a chat model for persona predictions and ranked products, and logs step-level rewards and episode summaries.
+
+Before using `inference.py`, set the three environment variables it reads at startup:
+
+- `HF_TOKEN`
+- `API_BASE_URL`
+- `MODEL_NAME`
+
+Example setup:
+
+```bash
+export HF_TOKEN=...
+export API_BASE_URL=...
+export MODEL_NAME=...
+```
+
+Like the Task 3 evaluator setup, these values can also be placed in a local `.env` file because `inference.py` calls `load_dotenv()` before loading configuration.
+
+Run the script with:
+
+```bash
+python3 inference.py
+```
+
 ## Repository Map
 
 - `server/personaidentify_environment.py`: core environment logic, task flow, episode handling, and Task 3 evaluator orchestration
