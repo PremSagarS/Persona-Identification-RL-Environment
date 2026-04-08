@@ -69,23 +69,6 @@ This grading structure gives the benchmark a useful mix of deterministic evaluat
 - recommendation quality is measured directly on ranked outputs,
 - cold-start behavior is encouraged to be both informative and concise.
 
-## Environment Mechanics
-
-The environment follows the standard OpenEnv lifecycle:
-
-1. `reset(task=...)` initializes a task-specific episode and returns the first observation.
-2. `step(action)` scores the action for the current state and returns the next observation, reward, and `done` flag.
-3. `state` exposes episode metadata for the active session.
-
-Episode structure is task dependent:
-
-- Tasks 1 and 2 sample `USERS_PER_EPISODE = 5` distinct users for each episode.
-- Each `step(...)` call scores the current user and advances to the next one.
-- The fifth user closes the episode with `done = true`.
-- Task 3 samples a single user, generates a short shopper introduction, accepts up to five question turns, and ends when the agent submits its final persona and product predictions.
-
-For Task 3, the environment seeds an evaluator LLM with the selected user's persona annotations and purchase history. The evaluator is instructed to stay in character, answer naturally, and avoid directly revealing persona labels or simply listing purchases back to the agent. This creates a controlled but still realistic cold-start interaction loop.
-
 ## Dataset and Data Construction
 
 The benchmark is backed by two JSON assets:
@@ -108,14 +91,6 @@ The data supports a meaningful range of behavioral complexity:
 - purchase histories span from 5 to 341 items,
 - user-level records include aggregate purchase statistics,
 - persona annotations capture both dominant and secondary traits.
-
-Task 2 uses a concrete basket-construction policy implemented in `utils.py`:
-
-- the ranking target is built from a fixed slice of 5 real purchases,
-- up to 15 distinct decoy products are sampled from other users,
-- the combined basket is shuffled before being returned to the agent.
-
-This creates a 20-item ranking problem that favors preference reasoning over simple memorization.
 
 ## Action, Observation, and State Interfaces
 
@@ -224,92 +199,6 @@ The state model contains:
 - `user_id`
 - `task`
 
-## Running the Environment
-
-### Local Development
-
-Install dependencies and start the FastAPI server:
-
-```bash
-uv sync
-uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-Once the server is running:
-
-- Web interface: `http://localhost:8000/web`
-- API docs: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
-Task 3 uses an evaluator-backed shopper simulator. Configure the evaluator model before running interactive cold-start episodes:
-
-```bash
-export OPENAI_API_KEY=...
-export OPENAI_BASE_URL=...
-export LLM_MODEL_NAME=...
-```
-
-The repository loads environment variables through `.env` when available.
-
-### Docker
-
-Build and run the container from the repository root:
-
-```bash
-docker build -t personaidentify-env .
-docker run --rm -p 8000:8000 personaidentify-env
-```
-
-### Hugging Face Spaces Deployment
-
-Deploy the environment with the OpenEnv CLI:
-
-```bash
-openenv push
-```
-
-The OpenEnv manifest is defined in `openenv.yaml` and points to `server.app:app` on port `8000`.
-
-### Submission Validation
-
-Validate the deployment surface with:
-
-```bash
-./validate-submission.sh <ping_url>
-```
-
-The validation script checks:
-
-- live `/reset` reachability for the deployed Space,
-- Docker build success,
-- `openenv validate` compliance.
-
-## Baseline Inference Script
-
-`inference.py` is a lightweight baseline driver that exercises the benchmark by running one Task 1 episode and one Task 2 episode directly against `PersonaidentifyEnvironment`. It uses a chat model to generate persona predictions and ranked product outputs, then logs step-level rewards and episode summaries.
-
-Configure the script with:
-
-```bash
-export HF_TOKEN=...
-export API_BASE_URL=...
-export MODEL_NAME=...
-```
-
-Optional runtime knobs:
-
-- `MAX_TOKENS`
-- `TEMPERATURE`
-- `MAX_STEPS`
-- `SUCCESS_SCORE_THRESHOLD`
-
-Run the script with:
-
-```bash
-python3 inference.py
-```
-
-This makes it a convenient starting point for validating prompt strategies, model behavior, and reward sensitivity on the benchmark's non-dialogue tasks.
 
 ## Repository Map
 
@@ -333,6 +222,15 @@ The benchmark exposes a compact set of configuration levers that shape task diff
 - `W1 = 0.2`, `W2 = 0.5`, and `W3 = 0.3` weight persona quality, ranking quality, and question efficiency in Task 3.
 - basket construction in `utils.py` determines how many real purchases and sampled decoys appear in Task 2.
 - evaluator model settings in `llm.py` shape the interaction behavior of the cold-start shopper simulation.
+
+These controls make it straightforward to tune ranking difficulty, interaction cost, and reward composition while preserving the benchmark's overall structure.
+## Benchmark Configuration and Tuning
+
+The benchmark exposes a compact set of configuration levers that shape task difficulty and reward balance:
+
+- `USERS_PER_EPISODE = 5` in `server/personaidentify_environment.py` controls the multi-user episode length for Tasks 1 and 2.
+- `MAXQ = 5` in `evalhelpers.py` sets the Task 3 question budget.
+- `W1 = 0.2`, `W2 = 0.5`, and `W3 = 0.3` weight persona quality, ranking quality, and question efficiency in Task 3.
 
 These controls make it straightforward to tune ranking difficulty, interaction cost, and reward composition while preserving the benchmark's overall structure.
 
