@@ -26,6 +26,7 @@ class PersonaIdentifyObservation(Observation):
     persona_labels: List[PersonaPrediction] | None = None
     personas: List[Persona] | None = None
     basket: List[Product] | None = None
+    users_remaining: int | None = None
 
 
 class PersonaIdentifyAction(Action):
