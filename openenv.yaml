@@ -14,13 +14,13 @@ tasks:
     difficulty: "easy"
 
   - id: "2"
-    grader: "personaidentify.evalhelpers:Task1Grader"
+    grader: "personaidentify.evalhelpers:Task2Grader"
     name: "Product Ranking"
     description: "Rank products in a mixed basket to surface likely purchases."
     difficulty: "medium"
 
   - id: "3"
-    grader: "personaidentify.evalhelpers:Task1Grader"
+    grader: "personaidentify.evalhelpers:Task3Grader"
     name: "Cold-start Interrogation"
     description: "Interactively ask questions then recommend persona and products under a question budget."
     difficulty: "hard"
