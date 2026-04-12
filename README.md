@@ -11,124 +11,101 @@ tags:
   - openenv
 ---
 
-# Persona Identification RL Environment
+# PersonaBench
 
-Persona Identification RL Environment is an OpenEnv benchmark for training and evaluating agents that reason over shopper behavior. The environment combines real purchase-history records, structured persona annotations, ranking tasks, and an evaluator-backed cold-start interaction setting. It is designed to measure whether an agent can move from passive behavioral inference to active preference elicitation and recommendation under a clean `reset` and `step` interface.
+An OpenEnv benchmark for evaluating agents on shopper persona inference, product ranking, and cold-start preference elicitation. Three tasks of increasing difficulty test whether an agent can move from passive behavioral inference to active, efficient recommendation.
 
-This repository packages the benchmark logic, reward functions, deployment surface, and a lightweight baseline driver in a single OpenEnv-compatible project. The result is a practical environment for studying sequential reasoning, recommendation quality, and efficient information gathering.
+**Live environment:** `https://premsagars-personaidentify.hf.space/`  
+**Web UI:** `https://premsagars-personaidentify.hf.space/web`  
+**API docs:** `https://premsagars-personaidentify.hf.space/docs`
 
-## Why This Benchmark Matters
+---
 
-Modern recommendation systems rarely start with a perfect user profile. In practice, systems must infer preferences from observed behavior when history exists, rank plausible purchases under ambiguity, and handle cold-start interactions when no history is available. This environment turns that progression into a concrete evaluation problem.
+## Why This Benchmark
 
-The benchmark emphasizes:
+Real recommendation systems face three compounding problems: inferring who a user is from their purchase history, ranking plausible products under ambiguity, and handling cold-start users with no history at all. PersonaBench turns this progression into a concrete, scorable evaluation problem with typed interfaces, deterministic graders, and a shaped reward signal.
 
-- real-world utility through persona-aware recommendation tasks grounded in purchase data,
-- clear grader behavior through deterministic scoring for persona inference and product ranking,
-- strong environment design through explicit episode boundaries and typed action and observation schemas,
-- deployment readiness through OpenEnv, Docker, Hugging Face Spaces, and validation tooling,
-- novelty through evaluator-backed cold-start interrogation rather than static one-shot prompting alone.
+---
 
-## Benchmark Design
+## Tasks
 
-The environment is organized as a three-stage difficulty ramp.
+### Task 1 — Persona Inference
 
-### Task 1: Persona Inference
+The agent receives a user's full purchase history and the persona catalogue. It returns persona predictions with confidence scores in `[0, 1]`. No follow-up questions are allowed.
 
-The agent receives a user's full purchase history together with the persona catalogue. It returns one or more persona predictions, each with a confidence score in `[0, 1]`. This task measures whether the agent can translate observed shopping behavior into a structured shopper profile without asking any follow-up questions.
+**Grader:** confidence-weighted cosine similarity × magnitude ratio against the annotated persona distribution. Rewards calibrated predictions over raw label guessing.
 
-### Task 2: Product Ranking
+### Task 2 — Product Ranking
 
-The agent receives persona labels together with a basket that mixes target purchases and decoy products. It returns a ranked list of product titles. This task measures recommendation quality under noise, where the agent must use persona signals and basket context to surface the products most aligned with the user.
+The agent receives persona labels and a mixed basket of target products and same-category decoys. It returns a ranked list of product titles.
 
-### Task 3: Cold-Start Interrogation
+Same-category decoys make this genuinely hard — coarse category filtering is insufficient. The agent must use persona signals and basket context to discriminate within a category.
 
-The agent starts without purchase history. Instead, it interacts with an evaluator-backed shopper simulation, asking natural-language questions until it is ready to submit persona predictions and a ranked product list. This task measures efficient information gathering, preference elicitation, and recommendation quality under a question budget.
+**Grader:** mean average precision (MAP) against the user's actual target purchases.
 
-Conceptually, the benchmark moves from passive inference to ranking and then to interactive cold start. In the implementation, Tasks 1 and 2 run as short multi-user episodes, while Task 3 runs as a single-user dialogue episode.
+### Task 3 — Cold-Start Interrogation
 
-## Scoring and Evaluation
+No purchase history is provided. The agent questions an evaluator-backed shopper simulation under a budget of 5 questions, then submits persona predictions and a ranked product list.
 
-The benchmark is designed to reward both correctness and efficient interaction.
+**Grader:**
 
-- Task 1 scores persona predictions against the user's annotated persona distribution using a normalized, confidence-weighted similarity objective.
-- Task 2 scores ranked product titles with mean average precision (MAP) against the user's target purchases.
-- Task 3 combines persona quality, recommendation quality, and question efficiency into a single reward.
-
-The current Task 3 reward configuration is:
-
-```text
-0.2 * persona_reward + 0.5 * ranking_reward + 0.3 * ((MAXQ - questions_asked) / MAXQ)
+```
+0.2 × persona_reward + 0.5 × ranking_reward + 0.3 × ((5 − questions_asked) / 5)
 ```
 
-with `MAXQ = 5`.
+This rewards efficient, targeted elicitation. Exhausting the question budget is penalized.
 
-This grading structure gives the benchmark a useful mix of deterministic evaluation and interactive reasoning pressure:
-- persona inference rewards calibrated structure rather than raw label guessing,
-- recommendation quality is measured directly on ranked outputs,
-- cold-start behavior is encouraged to be both informative and concise.
+---
 
-## Dataset and Data Construction
+## Scoring Summary
 
-The benchmark is backed by two JSON assets:
+| Task | Grader | Output range |
+|------|--------|-------------|
+| T1 | Confidence-weighted cosine similarity | 0.0 – 1.0 |
+| T2 | MAP vs. target purchases | 0.0 – 1.0 |
+| T3 | Weighted composite (T1 + T2 + efficiency) | 0.0 – 1.0 |
 
-- `server/user_personas.json`: 146 user records with `user_id`, persona annotations, aggregate stats, and purchase history.
-- `server/persona_catalogue.json`: 10 persona definitions, each with a name, description, and behavioral signals.
+---
 
-Each purchase-history item contains review-level product data:
+## Dataset
 
-- `title`
-- `rating`
-- `price`
-- `description`
-- `review_text`
+- `server/user_personas.json` — 146 user records with purchase history, persona annotations, and aggregate stats
+- `server/persona_catalogue.json` — 10 persona definitions, each with a name, description, and behavioral signals
 
-Each user record includes both a primary persona and an `all` list of confidence-weighted persona signals. This structure supports richer evaluation than single-label classification and lets the environment reward calibrated persona predictions.
+Each purchase history item contains `title`, `rating`, `price`, `description`, and `review_text`. Each user record includes a primary persona and a confidence-weighted `all` list of persona signals, enabling richer evaluation than single-label classification. Purchase histories range from 5 to 341 items.
 
-The data supports a meaningful range of behavioral complexity:
+---
 
-- purchase histories span from 5 to 341 items,
-- user-level records include aggregate purchase statistics,
-- persona annotations capture both dominant and secondary traits.
+## Action Schema
 
-## Action, Observation, and State Interfaces
+All actions are `PersonaIdentifyAction` objects with a `task` discriminator field.
 
-The environment surface is defined in `models.py` and `datamodels.py`.
-
-### Action Schema
-
-Task 1 persona prediction:
+**Task 1 — persona predictions:**
 
 ```json
 {
   "task": 1,
   "predictions": [
-    {
-      "persona": "Collector",
-      "confidence": 0.9
-    },
-    {
-      "persona": "Music Enthusiast",
-      "confidence": 0.75
-    }
+    { "persona": "Collector", "confidence": 0.9 },
+    { "persona": "Music Enthusiast", "confidence": 0.75 }
   ]
 }
 ```
 
-Task 2 ranked recommendation:
+**Task 2 — ranked product list:**
 
 ```json
 {
   "task": 2,
   "ranked_products": [
-    "Dave's Picks Volume 11: Century II Convention Hall, Wichita, KS 11/17/72",
-    "Tivoli Concert Hall, Copenhagen, Denmark 4/14/1972",
+    "Dave's Picks Volume 11",
+    "Tivoli Concert Hall, Copenhagen 4/14/1972",
     "Stars"
   ]
 }
 ```
 
-Task 3 question turn:
+**Task 3 — question turn:**
 
 ```json
 {
@@ -137,50 +114,51 @@ Task 3 question turn:
 }
 ```
 
-Task 3 final submission:
+**Task 3 — final submission** (empty `text_question`, both fields set):
 
 ```json
 {
   "task": 3,
   "predictions": [
-    {
-      "persona": "Collector",
-      "confidence": 0.85
-    },
-    {
-      "persona": "Music Enthusiast",
-      "confidence": 0.72
-    }
+    { "persona": "Collector", "confidence": 0.85 }
   ],
   "ranked_products": [
     "Limited Edition Live Recording",
-    "Deluxe Anniversary Box Set",
-    "Rare Import Vinyl"
+    "Deluxe Anniversary Box Set"
   ]
 }
 ```
 
+**T3 state transition:** `text_question` set → questioning phase. `text_question` empty + `ranked_products` set → final submission, episode ends and reward is computed. If both are set, `ranked_products` takes priority and the episode is evaluated immediately.
+
 `predictions[*].confidence` is validated to stay within `[0, 1]`.
 
-### Observation Fields
+---
 
-Common fields:
+## Observation Schema
 
-- `task`: active benchmark task (`1`, `2`, or `3`)
-- `reward`: reward returned for the latest step
-- `done`: whether the episode has ended
+All observations are `PersonaIdentifyObservation` objects. Common fields present in every observation:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `task` | `1 \| 2 \| 3` | Active benchmark task |
+| `reward` | `float` | Reward from the latest step |
+| `done` | `bool` | Whether the episode has ended |
+| `instruction` | `str` | Task-specific instruction text |
 
 Task-specific fields:
 
-- `purchase_history`: full review-level history for Task 1
-- `personas`: persona catalogue entries exposed to the agent
-- `basket`: shuffled product basket for Task 2
-- `persona_labels`: confidence-weighted persona labels for Task 2
-- `users_remaining`: number of users left in the current Task 1 or Task 2 episode
-- `start_intro`: evaluator-generated opening message for Task 3
-- `text_reply`: evaluator reply for Task 3 question turns
+| Field | Task | Description |
+|-------|------|-------------|
+| `purchase_history` | T1 | Full review-level purchase history for the current user |
+| `personas` | T1, T2 | Persona catalogue entries exposed to the agent |
+| `persona_labels` | T2 | Confidence-weighted persona labels for the current user |
+| `basket` | T2 | Shuffled product basket (targets + same-category decoys) |
+| `users_remaining` | T1, T2 | Users left in the current multi-user episode |
+| `start_intro` | T3 | Opening message from the evaluator-backed shopper simulation |
+| `text_reply` | T3 | Evaluator reply to the agent's latest question |
 
-Representative state payload:
+Episode state payload (returned alongside every observation):
 
 ```json
 {
@@ -191,24 +169,13 @@ Representative state payload:
 }
 ```
 
-The state model contains:
+---
 
-- `episode_id`
-- `step_count`
-- `user_id`
-- `task`
+## Running Locally
 
-## Running the Environment
+### Task 3 evaluator setup
 
-### Local Evaluator Setup
-
-The Task 3 shopper simulator is backed by `PersistentLLMHelper` in `llm.py`. That helper loads environment variables from `.env` when available and reads the following keys at startup:
-
-- `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
-- `LLM_MODEL_NAME`
-
-Set them before running the environment locally:
+The shopper simulator in Task 3 is backed by `PersistentLLMHelper` in `llm.py`. Set these before running:
 
 ```bash
 export OPENAI_API_KEY=...
@@ -216,39 +183,18 @@ export OPENAI_BASE_URL=...
 export LLM_MODEL_NAME=...
 ```
 
-You can also place the same values in a local `.env` file because `llm.py` calls `load_dotenv()` on startup.
+These can also go in a local `.env` file — `llm.py` calls `load_dotenv()` on startup.
 
-Start the environment locally with:
+### Start the server
 
 ```bash
 uv sync
 uv run uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Hosted Environment
+### Baseline inference script
 
-If you want to interact with an already live deployment instead of running the environment locally, use:
-
-```text
-https://premsagars-personaidentify.hf.space/
-```
-
-This hosted deployment can be used as the base URL for direct interaction with the environment. For browser-based exploration, use the same host with the OpenEnv web and docs routes:
-
-- `https://premsagars-personaidentify.hf.space/web`
-- `https://premsagars-personaidentify.hf.space/docs`
-
-### Baseline Inference Script
-
-`inference.py` runs a lightweight baseline flow over Task 1 and Task 2. It instantiates `PersonaidentifyEnvironment` directly, prompts a chat model for persona predictions and ranked products, and logs step-level rewards and episode summaries.
-
-Before using `inference.py`, set the three environment variables it reads at startup:
-
-- `HF_TOKEN`
-- `API_BASE_URL`
-- `MODEL_NAME`
-
-Example setup:
+`inference.py` runs a lightweight baseline over Tasks 1 and 2. Set:
 
 ```bash
 export HF_TOKEN=...
@@ -256,37 +202,35 @@ export API_BASE_URL=...
 export MODEL_NAME=...
 ```
 
-Like the Task 3 evaluator setup, these values can also be placed in a local `.env` file because `inference.py` calls `load_dotenv()` before loading configuration.
-
-Run the script with:
+Then run:
 
 ```bash
 python3 inference.py
 ```
 
+---
+
+## Configuration
+
+| Parameter | Location | Default | Effect |
+|-----------|----------|---------|--------|
+| `USERS_PER_EPISODE` | `server/personaidentify_environment.py` | `5` | Multi-user episode length for T1 and T2 |
+| `MAXQ` | `evalhelpers.py` | `5` | T3 question budget |
+| `W1, W2, W3` | `evalhelpers.py` | `0.2, 0.5, 0.3` | T3 reward weights |
+
+---
+
 ## Repository Map
 
-- `server/personaidentify_environment.py`: core environment logic, task flow, episode handling, and Task 3 evaluator orchestration
-- `evalhelpers.py`: reward functions for persona similarity, MAP scoring, and Task 3 combination logic
-- `utils.py`: persona loading, purchase extraction, and basket construction helpers
-- `models.py`: OpenEnv action, observation, and state models
-- `datamodels.py`: typed product, review, persona, and prediction data models
-- `llm.py`: persistent evaluator LLM helper used by the Task 3 shopper simulation
-- `server/app.py`: FastAPI app factory wiring for OpenEnv serving
-- `openenv.yaml`: OpenEnv runtime manifest for local validation and deployment
-- `inference.py`: baseline driver for model-based Task 1 and Task 2 evaluation
-- `validate-submission.sh`: submission validation workflow for deployment readiness
-
-## Benchmark Configuration and Tuning
-
-The benchmark exposes a compact set of configuration levers that shape task difficulty and reward balance:
-
-- `USERS_PER_EPISODE = 5` in `server/personaidentify_environment.py` controls the multi-user episode length for Tasks 1 and 2.
-- `MAXQ = 5` in `evalhelpers.py` sets the Task 3 question budget.
-- `W1 = 0.2`, `W2 = 0.5`, and `W3 = 0.3` weight persona quality, ranking quality, and question efficiency in Task 3.
-
-These controls make it straightforward to tune ranking difficulty, interaction cost, and reward composition while preserving the benchmark's overall structure.
-
-## Summary
-
-Persona Identification RL Environment brings together three capabilities that matter in real recommendation systems: inferring user identity from behavior, ranking likely products under uncertainty, and conducting efficient cold-start conversations. With typed models, explicit reward design, OpenEnv packaging, and deployable serving infrastructure, the repository provides a strong foundation for benchmarking agents on persona-aware recommendation workflows.
+| File | Purpose |
+|------|---------|
+| `server/personaidentify_environment.py` | Core environment logic, episode handling, T3 orchestration |
+| `evalhelpers.py` | Reward functions: persona similarity, MAP, T3 composite |
+| `models.py` | OpenEnv action, observation, and state models |
+| `datamodels.py` | Typed product, review, persona, and prediction data models |
+| `llm.py` | Persistent evaluator LLM helper for T3 shopper simulation |
+| `utils.py` | Persona loading, purchase extraction, basket construction |
+| `server/app.py` | FastAPI app factory for OpenEnv serving |
+| `openenv.yaml` | OpenEnv runtime manifest |
+| `inference.py` | Baseline driver for T1 and T2 evaluation |
+| `validate-submission.sh` | Submission validation workflow |
